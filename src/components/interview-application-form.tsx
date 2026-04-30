@@ -96,7 +96,6 @@ export function InterviewApplicationForm() {
     if (!fields.emailAddress.trim()) return "Email address is required.";
     if (!fields.salaryExpectations.trim()) return "Salary expectations are required.";
     if (!fields.nightShiftWilling) return "Please select night shift preference.";
-    if (!fields.typingSpeedWpm.trim()) return "Typing speed (WPM) is required.";
     if (fields.skills.length === 0) return "Please add at least one skill.";
     if (!fields.joiningDate.trim()) return "Joining date is required.";
     return null;
@@ -544,20 +543,6 @@ export function InterviewApplicationForm() {
               No skills added yet.
             </span>
           ) : null}
-        </div>
-        <div className="mt-6 max-w-xs">
-          <FieldGroup label="Typing speed (WPM)" htmlFor="typingSpeedWpm">
-            <input
-              id="typingSpeedWpm"
-              name="typingSpeedWpm"
-              type="number"
-              min={0}
-              required
-              className={inputClass}
-              value={fields.typingSpeedWpm}
-              onChange={(e) => {update("typingSpeedWpm", e.target.value); setMessage(false);}}
-            />
-          </FieldGroup>
         </div>
       </section>
 

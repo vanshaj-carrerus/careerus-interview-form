@@ -21,7 +21,6 @@ export interface InterviewFormFields {
   referenceNameAndContact: string;
   medicalIssues: string;
   skills: string[];
-  typingSpeedWpm: string;
   interviewerRemarks: string;
   interviewerName: string;
   signature: string;
@@ -46,7 +45,6 @@ export const initialInterviewFormFields: InterviewFormFields = {
   referenceNameAndContact: "",
   medicalIssues: "",
   skills: [],
-  typingSpeedWpm: "",
   interviewerRemarks: "",
   interviewerName: "",
   signature: "",

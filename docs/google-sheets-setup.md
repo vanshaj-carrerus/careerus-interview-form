@@ -9,7 +9,7 @@ Create a Google Sheet tab named:
 Copy-paste this as your first row:
 
 ```text
-submittedAt,positionApplyingFor,date,fullName,contactNumber,emailAddress,currentAddress,whyJoinUs,knowledgeOfJobRole,whyChangeJob,whyHireYou,currentLastEmployer,salaryExpectations,nightShiftWilling,idealWorkEnvironment,referenceNameAndContact,medicalIssues,skills,typingSpeedWpm,resumeFileName,resumeUrl,interviewerRemarks,interviewerName,signature,joiningDate
+submittedAt,positionApplyingFor,date,fullName,contactNumber,emailAddress,currentAddress,whyJoinUs,knowledgeOfJobRole,whyChangeJob,whyHireYou,currentLastEmployer,salaryExpectations,nightShiftWilling,idealWorkEnvironment,referenceNameAndContact,medicalIssues,skills,resumeFileName,resumeUrl,interviewerRemarks,interviewerName,signature,joiningDate
 ```
 
 ## 3) Apps Script Code
