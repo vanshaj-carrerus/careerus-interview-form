@@ -1,4 +1,4 @@
-const DEFAULT_TARGET = "https://custech.co";
+const DEFAULT_TARGET = "https://cus-interview-form.vercel.app";
 
 /**
  * Destination encoded in the QR code. Prefer `QR_TARGET_URL` in `.env.local` (server-only,
