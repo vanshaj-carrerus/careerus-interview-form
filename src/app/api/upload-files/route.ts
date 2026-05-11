@@ -4,6 +4,7 @@ import {
   UploadApiResponse,
   v2 as cloudinary,
 } from "cloudinary";
+import { signResumePdfToken } from "@/lib/resume-pdf-token";
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -25,6 +26,21 @@ function getFileExtension(name: string) {
   const parts = name.split(".");
   if (parts.length < 2) return "";
   return parts.pop()?.toLowerCase() ?? "";
+}
+
+function getRequestOrigin(req: NextRequest) {
+  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
+  const proto = req.headers.get("x-forwarded-proto") ?? "https";
+  if (!host) {
+    return new URL(req.url).origin;
+  }
+  return `${proto}://${host}`;
+}
+
+function resumePdfTokenSecret() {
+  return (
+    process.env.RESUME_PDF_TOKEN_SECRET ?? process.env.CLOUDINARY_API_SECRET
+  );
 }
 
 export async function POST(req: NextRequest) {
@@ -95,6 +111,7 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(await file.arrayBuffer());
 
     const isImage = file.type.startsWith("image/");
+    const isPdf = file.type === "application/pdf";
     const ext = getFileExtension(file.name);
     const safeName = sanitizeFileName(file.name) || "resume";
     const timestampPrefix = Date.now();
@@ -102,17 +119,23 @@ export async function POST(req: NextRequest) {
       ? `${timestampPrefix}_${safeName}.${ext}`
       : `${timestampPrefix}_${safeName}`;
 
+    // PDFs use resource_type "image" in Cloudinary. Public res.cloudinary.com
+    // URLs for PDFs still return 401 on many plans; we return an app proxy URL
+    // that streams via Cloudinary's authenticated download API.
+    // DOC/DOCX stay as raw so filenames keep .doc/.docx for downloads.
+    const resourceType: "image" | "raw" = isImage || isPdf ? "image" : "raw";
+    const publicId =
+      isImage || isPdf
+        ? `${timestampPrefix}_${safeName}`
+        : documentPublicId;
+
     // Upload to Cloudinary
     const result = await new Promise<UploadApiResponse>((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
           folder: "careerus/interview-forms",
-          resource_type: isImage ? "image" : "raw",
-          // For documents we include extension in public_id so downloaded files
-          // keep .pdf/.docx and open correctly.
-          public_id: isImage
-            ? `${timestampPrefix}_${safeName}`
-            : documentPublicId,
+          resource_type: resourceType,
+          public_id: publicId,
           use_filename: false,
           unique_filename: false,
         },
@@ -126,6 +149,30 @@ export async function POST(req: NextRequest) {
       );
       uploadStream.end(buffer);
     });
+
+    if (isPdf) {
+      const secret = resumePdfTokenSecret();
+      if (!secret) {
+        return NextResponse.json(
+          { url: null, error: "Server configuration is incomplete." },
+          { status: 500 },
+        );
+      }
+      const format = (result.format ?? "pdf").toLowerCase();
+      const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 365 * 10;
+      const token = signResumePdfToken(
+        {
+          publicId: result.public_id,
+          format,
+          resourceType: "image",
+          exp,
+        },
+        secret,
+      );
+      const origin = getRequestOrigin(req);
+      const url = `${origin}/api/resume-pdf?t=${encodeURIComponent(token)}`;
+      return NextResponse.json({ url });
+    }
 
     return NextResponse.json({ url: result.secure_url });
   } catch (error) {
