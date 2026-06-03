@@ -11,6 +11,10 @@ const inputClass =
   "w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm text-foreground shadow-sm transition-[color,box-shadow,border-color] placeholder:text-muted-foreground hover:border-primary/40 focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 disabled:cursor-not-allowed disabled:opacity-60";
 
 const labelClass = "mb-1.5 block text-sm font-medium text-foreground";
+
+const INTERNET_UNSTABLE_MESSAGE =
+  "Internet connection is not stable. Please try again. Something went wrong.";
+
 const skillSuggestions = [
   "English Speaking",
   "English Writing",
@@ -86,16 +90,20 @@ export function InterviewApplicationForm() {
   };
 
   const getStatusMessage = () => {
-    if (message) return message;
-    return "Submission status will appear here after you submit.";
+    if (!message || typeof message !== "string") {
+      return "Submission status will appear here after you submit.";
+    }
+    return message;
   };
 
   const validateRequiredFields = () => {
     if (!fields.fullName.trim()) return "Full name is required.";
     if (!fields.contactNumber.trim()) return "Contact number is required.";
     if (!fields.emailAddress.trim()) return "Email address is required.";
-    if (!fields.salaryExpectations.trim()) return "Salary expectations are required.";
-    if (!fields.nightShiftWilling) return "Please select night shift preference.";
+    if (!fields.salaryExpectations.trim())
+      return "Salary expectations are required.";
+    if (!fields.nightShiftWilling)
+      return "Please select night shift preference.";
     if (fields.skills.length === 0) return "Please add at least one skill.";
     if (!fields.joiningDate.trim()) return "Joining date is required.";
     return null;
@@ -171,13 +179,9 @@ export function InterviewApplicationForm() {
       setFields(initialInterviewFormFields);
       setResume(null);
       setSkillInput("");
-    } catch (error) {
+    } catch {
       setStatus("error");
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Could not submit right now. Please try again.",
-      );
+      setMessage(INTERNET_UNSTABLE_MESSAGE);
     }
   };
 
@@ -233,14 +237,6 @@ export function InterviewApplicationForm() {
           />
         </div>
       </header>
-      {message && (
-        <p
-          className={`rounded-lg border px-4 py-3 text-sm ${getStatusClasses()}`}
-          role={status === "error" ? "alert" : "status"}
-        >
-          {getStatusMessage()}
-        </p>
-      )}
 
       <section className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
         <div className="grid gap-6 sm:grid-cols-2">
@@ -255,7 +251,10 @@ export function InterviewApplicationForm() {
               autoComplete="organization-title"
               className={inputClass}
               value={fields.positionApplyingFor}
-              onChange={(e) => {update("positionApplyingFor", e.target.value); setMessage(false);}}
+              onChange={(e) => {
+                update("positionApplyingFor", e.target.value);
+                setMessage(false);
+              }}
             />
           </FieldGroup>
           <FieldGroup label="Applying Date" htmlFor="date">
@@ -265,7 +264,10 @@ export function InterviewApplicationForm() {
               type="date"
               className={inputClass}
               value={fields.date}
-              onChange={(e) => {update("date", e.target.value); setMessage(false);}}
+              onChange={(e) => {
+                update("date", e.target.value);
+                setMessage(false);
+              }}
             />
           </FieldGroup>
         </div>
@@ -283,7 +285,10 @@ export function InterviewApplicationForm() {
               required
               className={inputClass}
               value={fields.fullName}
-              onChange={(e) => {update("fullName", e.target.value); setMessage(false);}}
+              onChange={(e) => {
+                update("fullName", e.target.value);
+                setMessage(false);
+              }}
             />
           </FieldGroup>
           <div className="grid gap-6 sm:grid-cols-2">
@@ -296,7 +301,10 @@ export function InterviewApplicationForm() {
                 required
                 className={inputClass}
                 value={fields.contactNumber}
-                onChange={(e) => {update("contactNumber", e.target.value); setMessage(false);}}
+                onChange={(e) => {
+                  update("contactNumber", e.target.value);
+                  setMessage(false);
+                }}
               />
             </FieldGroup>
             <FieldGroup label="Email address" htmlFor="emailAddress">
@@ -308,7 +316,10 @@ export function InterviewApplicationForm() {
                 required
                 className={inputClass}
                 value={fields.emailAddress}
-                onChange={(e) => {update("emailAddress", e.target.value); setMessage(false);}}
+                onChange={(e) => {
+                  update("emailAddress", e.target.value);
+                  setMessage(false);
+                }}
               />
             </FieldGroup>
           </div>
@@ -319,7 +330,10 @@ export function InterviewApplicationForm() {
               rows={3}
               className={`${inputClass} min-h-20 resize-y`}
               value={fields.currentAddress}
-              onChange={(e) => {update("currentAddress", e.target.value); setMessage(false);}}
+              onChange={(e) => {
+                update("currentAddress", e.target.value);
+                setMessage(false);
+              }}
             />
           </FieldGroup>
         </div>
@@ -335,7 +349,10 @@ export function InterviewApplicationForm() {
               rows={4}
               className={`${inputClass} min-h-24 resize-y`}
               value={fields.whyJoinUs}
-              onChange={(e) => {update("whyJoinUs", e.target.value); setMessage(false);}}
+              onChange={(e) => {
+                update("whyJoinUs", e.target.value);
+                setMessage(false);
+              }}
             />
           </FieldGroup>
           <FieldGroup
@@ -348,7 +365,10 @@ export function InterviewApplicationForm() {
               rows={4}
               className={`${inputClass} min-h-24 resize-y`}
               value={fields.knowledgeOfJobRole}
-              onChange={(e) => {update("knowledgeOfJobRole", e.target.value); setMessage(false);}}
+              onChange={(e) => {
+                update("knowledgeOfJobRole", e.target.value);
+                setMessage(false);
+              }}
             />
           </FieldGroup>
           <FieldGroup
@@ -361,7 +381,10 @@ export function InterviewApplicationForm() {
               rows={4}
               className={`${inputClass} min-h-24 resize-y`}
               value={fields.whyChangeJob}
-              onChange={(e) => {update("whyChangeJob", e.target.value); setMessage(false);}}
+              onChange={(e) => {
+                update("whyChangeJob", e.target.value);
+                setMessage(false);
+              }}
             />
           </FieldGroup>
           <FieldGroup label="Why should we hire you?" htmlFor="whyHireYou">
@@ -391,7 +414,10 @@ export function InterviewApplicationForm() {
               autoComplete="organization"
               className={inputClass}
               value={fields.currentLastEmployer}
-              onChange={(e) => {update("currentLastEmployer", e.target.value); setMessage(false);}}
+              onChange={(e) => {
+                update("currentLastEmployer", e.target.value);
+                setMessage(false);
+              }}
             />
           </FieldGroup>
           <FieldGroup label="Salary expectations" htmlFor="salaryExpectations">
@@ -403,7 +429,10 @@ export function InterviewApplicationForm() {
               required
               className={inputClass}
               value={fields.salaryExpectations}
-              onChange={(e) => {update("salaryExpectations", e.target.value); setMessage(false);}}
+              onChange={(e) => {
+                update("salaryExpectations", e.target.value);
+                setMessage(false);
+              }}
             />
           </FieldGroup>
         </div>
@@ -431,7 +460,10 @@ export function InterviewApplicationForm() {
                     name="nightShiftWilling"
                     className="sr-only"
                     checked={fields.nightShiftWilling === opt}
-                    onChange={() => {update("nightShiftWilling", opt); setMessage(false);}}
+                    onChange={() => {
+                      update("nightShiftWilling", opt);
+                      setMessage(false);
+                    }}
                   />
                   {opt === "yes" ? "Yes" : "No"}
                 </label>
@@ -448,7 +480,10 @@ export function InterviewApplicationForm() {
               rows={4}
               className={`${inputClass} min-h-24 resize-y`}
               value={fields.idealWorkEnvironment}
-              onChange={(e) => {update("idealWorkEnvironment", e.target.value); setMessage(false);}}
+              onChange={(e) => {
+                update("idealWorkEnvironment", e.target.value);
+                setMessage(false);
+              }}
             />
           </FieldGroup>
         </div>
@@ -466,7 +501,10 @@ export function InterviewApplicationForm() {
             rows={3}
             className={`${inputClass} min-h-20 resize-y`}
             value={fields.referenceNameAndContact}
-            onChange={(e) => {update("referenceNameAndContact", e.target.value); setMessage(false);}}
+            onChange={(e) => {
+              update("referenceNameAndContact", e.target.value);
+              setMessage(false);
+            }}
           />
         </FieldGroup>
       </section>
@@ -483,7 +521,10 @@ export function InterviewApplicationForm() {
             rows={3}
             className={`${inputClass} min-h-20 resize-y`}
             value={fields.medicalIssues}
-            onChange={(e) => {update("medicalIssues", e.target.value); setMessage(false);}}
+            onChange={(e) => {
+              update("medicalIssues", e.target.value);
+              setMessage(false);
+            }}
           />
         </FieldGroup>
       </section>
@@ -500,7 +541,10 @@ export function InterviewApplicationForm() {
               value={skillInput}
               placeholder="e.g. HTML"
               className={inputClass}
-              onChange={(e) => {setSkillInput(e.target.value); setMessage(false);}}
+              onChange={(e) => {
+                setSkillInput(e.target.value);
+                setMessage(false);
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
@@ -516,7 +560,10 @@ export function InterviewApplicationForm() {
             <button
               type="button"
               className="rounded-lg bg-secondary px-5 py-2.5 text-sm font-semibold text-secondary-foreground shadow-sm transition hover:brightness-110"
-              onClick={() => {addSkill(skillInput); setMessage(false);}}
+              onClick={() => {
+                addSkill(skillInput);
+                setMessage(false);
+              }}
             >
               Add
             </button>
@@ -531,7 +578,10 @@ export function InterviewApplicationForm() {
               key={skill}
               type="button"
               className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-foreground"
-              onClick={() => {removeSkill(skill); setMessage(false);}}
+              onClick={() => {
+                removeSkill(skill);
+                setMessage(false);
+              }}
               title="Remove skill"
             >
               {skill}
@@ -572,13 +622,15 @@ export function InterviewApplicationForm() {
               required
               className={inputClass}
               value={fields.joiningDate}
-              onChange={(e) => {update("joiningDate", e.target.value); setMessage(false);}}
+              onChange={(e) => {
+                update("joiningDate", e.target.value);
+                setMessage(false);
+              }}
             />
           </FieldGroup>
         </div>
       </section>
 
-      
       {message && (
         <p
           className={`rounded-lg border px-4 py-3 text-sm ${getStatusClasses()}`}
