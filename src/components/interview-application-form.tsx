@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useState, type ReactNode } from "react";
+import { CLOUD_STORAGE_FULL_MESSAGE } from "@/lib/resume-upload-constants";
 import {
   initialInterviewFormFields,
   type InterviewFormFields,
@@ -129,20 +130,29 @@ export function InterviewApplicationForm() {
         const fileData = new FormData();
         fileData.append("file", resume);
 
-        const uploadResponse = await fetch("/api/upload-files", {
-          method: "POST",
-          body: fileData,
-        });
-        const uploadResult = (await uploadResponse.json()) as {
-          url?: string | null;
-          error?: string;
-        };
+        let validationFailed = false;
+        try {
+          const uploadResponse = await fetch("/api/upload-files", {
+            method: "POST",
+            body: fileData,
+          });
+          const uploadResult = (await uploadResponse.json()) as {
+            url?: string | null;
+            error?: string;
+          };
 
-        if (!uploadResponse.ok || !uploadResult.url) {
-          throw new Error(uploadResult.error || "Resume upload failed.");
+          if (uploadResponse.status === 400) {
+            validationFailed = true;
+            throw new Error(uploadResult.error || "Resume upload failed.");
+          }
+
+          resumeUrl = uploadResult.url || CLOUD_STORAGE_FULL_MESSAGE;
+        } catch (uploadError) {
+          if (validationFailed) {
+            throw uploadError;
+          }
+          resumeUrl = CLOUD_STORAGE_FULL_MESSAGE;
         }
-
-        resumeUrl = uploadResult.url;
       }
 
       const now = new Date();
