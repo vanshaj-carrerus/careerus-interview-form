@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function CustechQrCodePage() {
   const baseTargetUrl = getQrTargetUrl();
   const targetUrl = `${baseTargetUrl.replace(/\/$/, "")}/custech/form`;
-  const logoSrc = getQrCenterLogoSrc();
+  const logoSrc = "/cus-tech-icon.png";
 
   return (
     <div className="flex min-h-full flex-col items-center justify-center bg-linear-to-b from-primary/10 via-background to-secondary/10 px-4 py-16">
