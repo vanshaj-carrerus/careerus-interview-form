@@ -1,16 +1,8 @@
-import ImageKit, { toFile } from "@imagekit/nodejs";
-import {
-  UploadApiErrorResponse,
-  UploadApiResponse,
-  v2 as cloudinary,
-} from "cloudinary";
 import type { NextRequest } from "next/server";
-import { signResumePdfToken } from "@/lib/resume-pdf-token";
 
 import { CLOUD_STORAGE_FULL_MESSAGE } from "@/lib/resume-upload-constants";
 
-const CLOUDINARY_FOLDER = "careerus/interview-forms";
-const IMAGEKIT_FOLDER = "/careerus/interview-forms";
+const SIRV_UPLOAD_FOLDER = "/careerus/interview-forms";
 
 const allowedImageTypes = [
   "image/jpeg",
@@ -25,12 +17,6 @@ const allowedDocumentTypes = [
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ];
 const allowedTypes = [...allowedImageTypes, ...allowedDocumentTypes];
-
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
 
 export function sanitizeFileName(name: string) {
   return name
@@ -55,10 +41,8 @@ export type ResumeFileMeta = {
   ext: string;
   safeName: string;
   timestampPrefix: number;
-  documentPublicId: string;
-  publicId: string;
-  resourceType: "image" | "raw";
   uploadFileName: string;
+  sirvPath: string;
 };
 
 export function buildResumeFileMeta(file: File, buffer: Buffer): ResumeFileMeta {
@@ -67,15 +51,10 @@ export function buildResumeFileMeta(file: File, buffer: Buffer): ResumeFileMeta 
   const ext = getFileExtension(file.name);
   const safeName = sanitizeFileName(file.name) || "resume";
   const timestampPrefix = Date.now();
-  const documentPublicId = ext
-    ? `${timestampPrefix}_${safeName}.${ext}`
-    : `${timestampPrefix}_${safeName}`;
-  const resourceType: "image" | "raw" = isImage || isPdf ? "image" : "raw";
-  const publicId =
-    isImage || isPdf ? `${timestampPrefix}_${safeName}` : documentPublicId;
   const uploadFileName = ext
     ? `${timestampPrefix}_${safeName}.${ext}`
     : `${timestampPrefix}_${safeName}`;
+  const sirvPath = `${SIRV_UPLOAD_FOLDER.replace(/\/+$/, "")}/${uploadFileName}`;
 
   return {
     buffer,
@@ -84,10 +63,8 @@ export function buildResumeFileMeta(file: File, buffer: Buffer): ResumeFileMeta 
     ext,
     safeName,
     timestampPrefix,
-    documentPublicId,
-    publicId,
-    resourceType,
     uploadFileName,
+    sirvPath,
   };
 }
 
@@ -116,136 +93,140 @@ export function validateResumeFile(file: File):
   return { ok: true };
 }
 
-function isCloudinaryConfigured() {
+function isConfiguredValue(value: string | undefined) {
+  if (!value) return false;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "your-sirv-client-id" || trimmed === "your-sirv-client-secret") {
+    return false;
+  }
+  return !/your-(sirv|account)|placeholder|example|demo/i.test(trimmed);
+}
+
+function isSirvConfigured() {
   return !!(
-    process.env.CLOUDINARY_CLOUD_NAME &&
-    process.env.CLOUDINARY_API_KEY &&
-    process.env.CLOUDINARY_API_SECRET
+    isConfiguredValue(process.env.SIRV_CLIENT_ID) &&
+    isConfiguredValue(process.env.SIRV_CLIENT_SECRET) &&
+    (isConfiguredValue(process.env.SIRV_PUBLIC_URL) ||
+      isConfiguredValue(process.env.SIRV_ACCOUNT_ALIAS))
   );
 }
 
-function isImageKitConfigured() {
-  return !!process.env.IMAGEKIT_PRIVATE_KEY;
+function getSirvPublicBaseUrl() {
+  const configuredUrl = process.env.SIRV_PUBLIC_URL?.trim();
+  if (configuredUrl) {
+    return configuredUrl.replace(/\/+$/, "");
+  }
+
+  const alias = process.env.SIRV_ACCOUNT_ALIAS?.trim();
+  if (alias) {
+    return `https://${alias}.sirv.com`;
+  }
+
+  return "";
 }
 
-function resumePdfTokenSecret() {
-  return (
-    process.env.RESUME_PDF_TOKEN_SECRET ?? process.env.CLOUDINARY_API_SECRET
+async function getSirvBearerToken() {
+  const clientId = process.env.SIRV_CLIENT_ID?.trim();
+  const clientSecret = process.env.SIRV_CLIENT_SECRET?.trim();
+
+  if (!clientId || !clientSecret) {
+    throw new Error("Sirv client credentials are missing.");
+  }
+
+  const response = await fetch("https://api.sirv.com/v2/token", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ clientId, clientSecret }),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(
+      `Sirv token request failed: ${response.status} ${detail}`.slice(0, 500),
+    );
+  }
+
+  const payload = (await response.json()) as { token?: string; error?: string };
+  if (!payload.token) {
+    throw new Error(payload.error ?? "Sirv token request failed.");
+  }
+
+  return payload.token;
+}
+
+async function uploadToSirv(meta: ResumeFileMeta): Promise<string> {
+  const baseUrl = getSirvPublicBaseUrl();
+  if (!baseUrl) {
+    throw new Error(
+      "Sirv public URL is missing. Set SIRV_PUBLIC_URL or SIRV_ACCOUNT_ALIAS.",
+    );
+  }
+
+  const token = await getSirvBearerToken();
+  const normalizedPath = meta.sirvPath.startsWith("/")
+    ? meta.sirvPath
+    : `/${meta.sirvPath}`;
+  const filename = encodeURIComponent(normalizedPath);
+
+  const response = await fetch(
+    `https://api.sirv.com/v2/files/upload?filename=${filename}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/octet-stream",
+      },
+      body: new Uint8Array(meta.buffer),
+    },
   );
-}
 
-function getRequestOrigin(req: NextRequest) {
-  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
-  const proto = req.headers.get("x-forwarded-proto") ?? "https";
-  if (!host) {
-    return new URL(req.url).origin;
-  }
-  return `${proto}://${host}`;
-}
-
-async function uploadToCloudinary(
-  meta: ResumeFileMeta,
-  req: NextRequest,
-): Promise<string> {
-  const result = await new Promise<UploadApiResponse>((resolve, reject) => {
-    const uploadStream = cloudinary.uploader.upload_stream(
-      {
-        folder: CLOUDINARY_FOLDER,
-        resource_type: meta.resourceType,
-        public_id: meta.publicId,
-        use_filename: false,
-        unique_filename: false,
-      },
-      (
-        error: UploadApiErrorResponse | undefined,
-        uploadResult: UploadApiResponse | undefined,
-      ) => {
-        if (error) reject(error);
-        else resolve(uploadResult as UploadApiResponse);
-      },
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(
+      `Sirv upload failed: ${response.status} ${detail}`.slice(0, 500),
     );
-    uploadStream.end(meta.buffer);
-  });
-
-  if (meta.isPdf) {
-    const secret = resumePdfTokenSecret();
-    if (!secret) {
-      throw new Error("Server configuration is incomplete.");
-    }
-    const format = (result.format ?? "pdf").toLowerCase();
-    const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 365 * 10;
-    const token = signResumePdfToken(
-      {
-        publicId: result.public_id,
-        format,
-        resourceType: "image",
-        exp,
-      },
-      secret,
-    );
-    const origin = getRequestOrigin(req);
-    return `${origin}/api/resume-pdf?t=${encodeURIComponent(token)}`;
   }
 
-  return result.secure_url;
-}
-
-async function uploadToImageKit(meta: ResumeFileMeta): Promise<string> {
-  const client = new ImageKit({
-    privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
-  });
-
-  const response = await client.files.upload({
-    file: await toFile(meta.buffer, meta.uploadFileName),
-    fileName: meta.uploadFileName,
-    folder: IMAGEKIT_FOLDER,
-    useUniqueFileName: true,
-  });
-
-  if (!response.url) {
-    throw new Error("ImageKit upload returned no URL");
-  }
-
-  return response.url;
+  return `${baseUrl}${normalizedPath}`;
 }
 
 export type ResumeUploadResult = {
   url: string;
-  provider?: "cloudinary" | "imagekit";
+  provider?: "sirv";
   cloudFull?: boolean;
 };
 
 export async function uploadResumeWithFallback(
   file: File,
-  req: NextRequest,
+  _req: NextRequest,
 ): Promise<ResumeUploadResult> {
   const validation = validateResumeFile(file);
   if (!validation.ok) {
     throw new ResumeUploadValidationError(validation.error);
   }
 
+  if (!isSirvConfigured()) {
+    throw new Error(
+      "Sirv storage is not configured. Set the real SIRV_CLIENT_ID, SIRV_CLIENT_SECRET, and SIRV_PUBLIC_URL or SIRV_ACCOUNT_ALIAS values before uploading.",
+    );
+  }
+
   const buffer = Buffer.from(await file.arrayBuffer());
   const meta = buildResumeFileMeta(file, buffer);
 
-  if (isCloudinaryConfigured()) {
-    try {
-      const url = await uploadToCloudinary(meta, req);
-      return { url, provider: "cloudinary" };
-    } catch (error) {
-      console.error("Cloudinary upload failed, trying ImageKit:", error);
-    }
+  try {
+    const url = await uploadToSirv(meta);
+    return { url, provider: "sirv" };
+  } catch (error) {
+    console.error("Sirv upload failed:", error);
+    throw new Error(
+      error instanceof Error
+        ? error.message
+        : "Resume upload failed while contacting Sirv.",
+    );
   }
-
-  if (isImageKitConfigured()) {
-    try {
-      const url = await uploadToImageKit(meta);
-      return { url, provider: "imagekit" };
-    } catch (error) {
-      console.error("ImageKit upload failed:", error);
-    }
-  }
-
-  return { url: CLOUD_STORAGE_FULL_MESSAGE, cloudFull: true };
 }
 
 export class ResumeUploadValidationError extends Error {
