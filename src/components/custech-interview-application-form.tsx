@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useState, type ReactNode } from "react";
-import { CLOUD_STORAGE_FULL_MESSAGE } from "@/lib/resume-upload-constants";
+import { RESUME_UPLOAD_UNKNOWN_ERROR_MESSAGE } from "@/lib/resume-upload-constants";
 import {
   initialCustechInterviewFormFields,
   type CustechInterviewFormFields,
@@ -146,12 +146,18 @@ export function CustechInterviewApplicationForm() {
             throw new Error(uploadResult.error || "Resume upload failed.");
           }
 
-          resumeUrl = uploadResult.url || CLOUD_STORAGE_FULL_MESSAGE;
+          resumeUrl =
+            uploadResult.url ||
+            uploadResult.error ||
+            RESUME_UPLOAD_UNKNOWN_ERROR_MESSAGE;
         } catch (uploadError) {
           if (validationFailed) {
             throw uploadError;
           }
-          resumeUrl = CLOUD_STORAGE_FULL_MESSAGE;
+          resumeUrl =
+            uploadError instanceof Error
+              ? uploadError.message
+              : RESUME_UPLOAD_UNKNOWN_ERROR_MESSAGE;
         }
       }
 

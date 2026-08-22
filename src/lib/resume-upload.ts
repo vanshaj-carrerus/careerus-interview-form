@@ -1,6 +1,9 @@
 import type { NextRequest } from "next/server";
 
-import { CLOUD_STORAGE_FULL_MESSAGE } from "@/lib/resume-upload-constants";
+import {
+  isMongoConfigured,
+  uploadResumeToMongoFallback,
+} from "@/lib/resume-mongo-fallback";
 
 const SIRV_UPLOAD_FOLDER = "/careerus/interview-forms";
 
@@ -194,39 +197,65 @@ async function uploadToSirv(meta: ResumeFileMeta): Promise<string> {
 
 export type ResumeUploadResult = {
   url: string;
-  provider?: "sirv";
+  provider?: "sirv" | "mongodb";
   cloudFull?: boolean;
 };
 
 export async function uploadResumeWithFallback(
   file: File,
-  _req: NextRequest,
+  req: NextRequest,
 ): Promise<ResumeUploadResult> {
   const validation = validateResumeFile(file);
   if (!validation.ok) {
     throw new ResumeUploadValidationError(validation.error);
   }
 
-  if (!isSirvConfigured()) {
-    throw new Error(
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const meta = buildResumeFileMeta(file, buffer);
+
+  const isDocx =
+    file.type ===
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+  let sirvError: unknown = null;
+  if (isDocx) {
+    sirvError = new Error(
+      "Sirv does not accept DOCX files; routed directly to MongoDB.",
+    );
+  } else if (isSirvConfigured()) {
+    try {
+      const url = await uploadToSirv(meta);
+      return { url, provider: "sirv" };
+    } catch (error) {
+      console.error("Sirv upload failed:", error);
+      sirvError = error;
+    }
+  } else {
+    sirvError = new Error(
       "Sirv storage is not configured. Set the real SIRV_CLIENT_ID, SIRV_CLIENT_SECRET, and SIRV_PUBLIC_URL or SIRV_ACCOUNT_ALIAS values before uploading.",
     );
   }
 
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const meta = buildResumeFileMeta(file, buffer);
-
-  try {
-    const url = await uploadToSirv(meta);
-    return { url, provider: "sirv" };
-  } catch (error) {
-    console.error("Sirv upload failed:", error);
-    throw new Error(
-      error instanceof Error
-        ? error.message
-        : "Resume upload failed while contacting Sirv.",
-    );
+  if (isMongoConfigured()) {
+    try {
+      const origin = req.nextUrl.origin;
+      const url = await uploadResumeToMongoFallback(meta, file, origin);
+      return { url, provider: "mongodb" };
+    } catch (mongoError) {
+      console.error("MongoDB fallback upload failed:", mongoError);
+      throw new Error(
+        `Resume upload failed. Sirv error: ${errorMessage(sirvError)}. MongoDB fallback error: ${errorMessage(mongoError)}`,
+      );
+    }
   }
+
+  throw new Error(
+    `Resume upload failed and no fallback storage is configured. Sirv error: ${errorMessage(sirvError)}`,
+  );
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 export class ResumeUploadValidationError extends Error {

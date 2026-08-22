@@ -5,11 +5,11 @@
 export interface InterviewFormFields {
   positionApplyingFor: string;
   /** Application / interview date */
-  date: string;
-  fullName: string;
-  contactNumber: string;
-  emailAddress: string;
-  currentAddress: string;
+  date: string
+  fullName: string
+  contactNumber: string
+  emailAddress: string
+  currentAddress: string
   whyJoinUs: string;
   knowledgeOfJobRole: string;
   whyChangeJob: string;

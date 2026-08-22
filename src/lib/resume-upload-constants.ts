@@ -1,2 +1,2 @@
-export const CLOUD_STORAGE_FULL_MESSAGE =
-  "the cloud is full.... replace/upgrade the cloud";
+export const RESUME_UPLOAD_UNKNOWN_ERROR_MESSAGE =
+  "Resume upload failed for an unknown reason.";
