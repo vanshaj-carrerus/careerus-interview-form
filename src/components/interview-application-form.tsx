@@ -232,7 +232,7 @@ export function InterviewApplicationForm() {
       <header className="flex flex-col gap-6 border-b border-border pb-8 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
-            CareerU S Solutions
+            CareerUS Solutions
           </p>
           <h1 className="mt-2 text-2xl font-bold uppercase tracking-tight text-foreground sm:text-3xl">
             Job application form
