@@ -619,10 +619,22 @@ export function CustechInterviewApplicationForm() {
               id="resume"
               name="resume"
               type="file"
-              accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/*"
+              accept=".pdf,application/pdf,image/*"
               className={`${inputClass} cursor-pointer file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-secondary-foreground hover:file:bg-secondary/90`}
-              onChange={(e) => setResume(e.target.files?.[0] ?? null)}
+              onChange={(e) => {
+                const file = e.target.files?.[0] ?? null;
+                if (file && file.type !== "application/pdf" && !file.type.startsWith("image/")) {
+                  window.alert("Please upload a PDF or image file (DOCX is not supported).");
+                  e.target.value = "";
+                  setResume(null);
+                  return;
+                }
+                setResume(file);
+              }}
             />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Accepted formats: PDF or image (JPG, PNG, etc.). DOCX is not supported.
+            </p>
             {resume ? (
               <p className="mt-1 text-xs text-muted-foreground">
                 Selected: {resume.name}
