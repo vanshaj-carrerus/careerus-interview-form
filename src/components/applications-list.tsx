@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import type { ApplicationSubmission } from "@/types/application-submission";
 
 type SourceFilter = "all" | "careerus" | "custech";
@@ -350,6 +351,19 @@ export function ApplicationsList({
   const [selected, setSelected] = useState<ApplicationSubmission | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const router = useRouter();
+
+  const signOut = async () => {
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    try {
+      await fetch("/api/applications/logout", { method: "POST" });
+    } finally {
+      router.replace("/applications/login");
+      router.refresh();
+    }
+  };
 
   const refresh = async () => {
     setIsRefreshing(true);
@@ -400,7 +414,7 @@ export function ApplicationsList({
   }, [submissions]);
 
   return (
-    <div className="mx-auto w-full max-w-400 space-y-7 px-4 pb-16 pt-8 sm:px-6">
+    <div className="w-full space-y-7 px-4 pb-16 pt-8 sm:px-6 lg:px-10">
       <header className="flex flex-col gap-5 border-b border-border pb-7 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex items-start gap-4">
           <div className="hidden shrink-0 items-center justify-center rounded-2xl bg-linear-to-br from-primary to-secondary p-3 shadow-sm shadow-primary/20 sm:flex">
@@ -432,27 +446,51 @@ export function ApplicationsList({
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={refresh}
-          disabled={isRefreshing}
-          className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition hover:border-primary/40 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
-            aria-hidden
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={refresh}
+            disabled={isRefreshing}
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition hover:border-primary/40 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6" />
-          </svg>
-          {isRefreshing ? "Refreshing..." : "Refresh"}
-        </button>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
+              aria-hidden
+            >
+              <path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6" />
+            </svg>
+            {isRefreshing ? "Refreshing..." : "Refresh"}
+          </button>
+          <button
+            type="button"
+            onClick={signOut}
+            disabled={isSigningOut}
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition hover:border-destructive/40 hover:bg-destructive/5 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-4 w-4"
+              aria-hidden
+            >
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <path d="M16 17l5-5-5-5M21 12H9" />
+            </svg>
+            {isSigningOut ? "Signing out..." : "Sign out"}
+          </button>
+        </div>
       </header>
 
       {!mongoConfigured ? (
