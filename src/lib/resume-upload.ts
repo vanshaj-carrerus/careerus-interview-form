@@ -117,7 +117,10 @@ function isSirvConfigured() {
 function getSirvPublicBaseUrl() {
   const configuredUrl = process.env.SIRV_PUBLIC_URL?.trim();
   if (configuredUrl) {
-    return configuredUrl.replace(/\/+$/, "");
+    const withProtocol = /^https?:\/\//i.test(configuredUrl)
+      ? configuredUrl
+      : `https://${configuredUrl}`;
+    return withProtocol.replace(/\/+$/, "");
   }
 
   const alias = process.env.SIRV_ACCOUNT_ALIAS?.trim();

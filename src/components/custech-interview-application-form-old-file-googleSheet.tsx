@@ -2,10 +2,11 @@
 
 import Image from "next/image";
 import { useCallback, useState, type ReactNode } from "react";
+import { RESUME_UPLOAD_UNKNOWN_ERROR_MESSAGE } from "@/lib/resume-upload-constants";
 import {
-  initialInterviewFormFields,
-  type InterviewFormFields,
-} from "@/types/interview-form";
+  initialCustechInterviewFormFields,
+  type CustechInterviewFormFields,
+} from "@/types/custech-interview-form";
 
 const inputClass =
   "w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm text-foreground shadow-sm transition-[color,box-shadow,border-color] placeholder:text-muted-foreground hover:border-primary/40 focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 disabled:cursor-not-allowed disabled:opacity-60";
@@ -55,9 +56,9 @@ function FieldGroup({
   );
 }
 
-export function InterviewApplicationForm() {
-  const [fields, setFields] = useState<InterviewFormFields>(
-    initialInterviewFormFields,
+export function CustechInterviewApplicationForm() {
+  const [fields, setFields] = useState<CustechInterviewFormFields>(
+    initialCustechInterviewFormFields,
   );
   const [resume, setResume] = useState<File | null>(null);
   const [skillInput, setSkillInput] = useState("");
@@ -67,9 +68,9 @@ export function InterviewApplicationForm() {
   const [message, setMessage] = useState<string | boolean>(false);
 
   const update = useCallback(
-    <K extends keyof InterviewFormFields>(
+    <K extends keyof CustechInterviewFormFields>(
       key: K,
-      value: InterviewFormFields[K],
+      value: CustechInterviewFormFields[K],
     ) => {
       setFields((prev) => ({ ...prev, [key]: value }));
     },
@@ -126,35 +127,37 @@ export function InterviewApplicationForm() {
     try {
       let resumeUrl = "";
       if (resume) {
-        setMessage("Uploading resume...");
         const fileData = new FormData();
         fileData.append("file", resume);
 
-        let uploadResponse: Response;
+        let validationFailed = false;
         try {
-          uploadResponse = await fetch("/api/upload-files", {
+          const uploadResponse = await fetch("/api/upload-files", {
             method: "POST",
             body: fileData,
           });
-        } catch {
-          throw new Error(
-            "Could not reach the upload server. Please check your connection and try again.",
-          );
-        }
+          const uploadResult = (await uploadResponse.json()) as {
+            url?: string | null;
+            error?: string;
+          };
 
-        const uploadResult = (await uploadResponse.json()) as {
-          url?: string | null;
-          error?: string;
-        };
+          if (uploadResponse.status === 400) {
+            validationFailed = true;
+            throw new Error(uploadResult.error || "Resume upload failed.");
+          }
 
-        if (uploadResponse.status === 200 && uploadResult.url) {
-          resumeUrl = uploadResult.url;
-          setMessage("Resume uploaded. Submitting application...");
-        } else {
-          throw new Error(
+          resumeUrl =
+            uploadResult.url ||
             uploadResult.error ||
-              `Upload API responded with status ${uploadResponse.status}.`,
-          );
+            RESUME_UPLOAD_UNKNOWN_ERROR_MESSAGE;
+        } catch (uploadError) {
+          if (validationFailed) {
+            throw uploadError;
+          }
+          resumeUrl =
+            uploadError instanceof Error
+              ? uploadError.message
+              : RESUME_UPLOAD_UNKNOWN_ERROR_MESSAGE;
         }
       }
 
@@ -168,7 +171,7 @@ export function InterviewApplicationForm() {
         submittedAt: submittedAtIso,
       };
 
-      const response = await fetch("/api/interview-submissions", {
+      const response = await fetch("/api/custech-interview-submissions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -189,14 +192,12 @@ export function InterviewApplicationForm() {
 
       setStatus("success");
       setMessage("Application submitted successfully.");
-      setFields(initialInterviewFormFields);
+      setFields(initialCustechInterviewFormFields);
       setResume(null);
       setSkillInput("");
-    } catch (error) {
+    } catch {
       setStatus("error");
-      setMessage(
-        error instanceof Error ? error.message : INTERNET_UNSTABLE_MESSAGE,
-      );
+      setMessage(INTERNET_UNSTABLE_MESSAGE);
     }
   };
 
@@ -231,10 +232,10 @@ export function InterviewApplicationForm() {
       <header className="flex flex-col gap-6 border-b border-border pb-8 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
-            CareerUS Solutions
+            CUSTECH
           </p>
           <h1 className="mt-2 text-2xl font-bold uppercase tracking-tight text-foreground sm:text-3xl">
-            Job application form
+            CUSTECH Job application form
           </h1>
           <p className="mt-2 max-w-md text-sm text-muted-foreground">
             Candidate interview intake. Complete all sections; interviewer
@@ -243,11 +244,11 @@ export function InterviewApplicationForm() {
         </div>
         <div className="flex shrink-0 items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
           <Image
-            src="/logo.png"
-            alt=""
+            src="/cus-tech-logo.png"
+            alt="CUS Tech"
             width={2000}
             height={2000}
-            className="opacity-90 h-10 w-auto dark:invert object-contain"
+            className="h-10 w-auto dark:invert object-contain"
             aria-hidden
           />
         </div>
@@ -464,11 +465,10 @@ export function InterviewApplicationForm() {
               {(["yes", "no"] as const).map((opt) => (
                 <label
                   key={opt}
-                  className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-[background-color,border-color,box-shadow] ${
-                    fields.nightShiftWilling === opt
-                      ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/20"
-                      : "border-border bg-background text-foreground hover:border-primary/50 hover:bg-primary/5"
-                  }`}
+                  className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-[background-color,border-color,box-shadow] ${fields.nightShiftWilling === opt
+                    ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                    : "border-border bg-background text-foreground hover:border-primary/50 hover:bg-primary/5"
+                    }`}
                 >
                   <input
                     type="radio"
@@ -672,7 +672,7 @@ export function InterviewApplicationForm() {
           className="rounded-lg border border-border bg-background px-6 py-3 text-sm font-semibold text-foreground shadow-sm transition-[background-color,border-color] hover:bg-muted"
           disabled={status === "loading"}
           onClick={() => {
-            setFields(initialInterviewFormFields);
+            setFields(initialCustechInterviewFormFields);
             setResume(null);
             setSkillInput("");
             setStatus("idle");

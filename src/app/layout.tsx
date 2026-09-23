@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   title: "CareerUS Solutions — Job application",
   description: "Interview application form for CareerUS Solutions candidates.",
   icons: {
-    icon: "/favicon.ico",
+    icon: "/favicon.png",
     shortcut: "/favicon.png",
     apple: "/favicon.png",
   },

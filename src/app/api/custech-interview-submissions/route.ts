@@ -1,19 +1,15 @@
 import { NextResponse } from "next/server";
+import { isMongoConfigured } from "@/lib/mongodb";
+import { saveInterviewSubmission } from "@/lib/interview-submissions";
 
 type SubmissionBody = Record<string, unknown>;
 
-function getScriptUrl() {
-  return process.env.CUSTECH_SHEET_SCRIPT_URL?.trim() ?? "";
-}
-
 export async function POST(request: Request) {
-  const scriptUrl = getScriptUrl();
-  if (!scriptUrl) {
+  if (!isMongoConfigured()) {
     return NextResponse.json(
       {
         ok: false,
-        error:
-          "Google Sheet script URL is missing. Set CUSTECH_SHEET_SCRIPT_URL in .env.local.",
+        error: "Database is not configured. Set MONGODB_URI in .env.local.",
       },
       { status: 500 },
     );
@@ -30,35 +26,13 @@ export async function POST(request: Request) {
   }
 
   try {
-    const response = await fetch(scriptUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-      redirect: "follow",
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: `Google Script responded with status ${response.status}.`,
-        },
-        { status: 502 },
-      );
-    }
-
+    await saveInterviewSubmission(payload, "custech");
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (error) {
+    console.error("Failed to save interview submission:", error);
     return NextResponse.json(
-      {
-        ok: false,
-        error:
-          "Unable to reach Google Script endpoint. Check deployment and internet connection.",
-      },
-      { status: 502 },
+      { ok: false, error: "Failed to save submission to the database." },
+      { status: 500 },
     );
   }
 }

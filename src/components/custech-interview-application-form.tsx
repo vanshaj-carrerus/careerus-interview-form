@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import { useCallback, useState, type ReactNode } from "react";
-import { RESUME_UPLOAD_UNKNOWN_ERROR_MESSAGE } from "@/lib/resume-upload-constants";
 import {
   initialCustechInterviewFormFields,
   type CustechInterviewFormFields,
@@ -127,37 +126,35 @@ export function CustechInterviewApplicationForm() {
     try {
       let resumeUrl = "";
       if (resume) {
+        setMessage("Uploading resume...");
         const fileData = new FormData();
         fileData.append("file", resume);
 
-        let validationFailed = false;
+        let uploadResponse: Response;
         try {
-          const uploadResponse = await fetch("/api/upload-files", {
+          uploadResponse = await fetch("/api/upload-files", {
             method: "POST",
             body: fileData,
           });
-          const uploadResult = (await uploadResponse.json()) as {
-            url?: string | null;
-            error?: string;
-          };
+        } catch {
+          throw new Error(
+            "Could not reach the upload server. Please check your connection and try again.",
+          );
+        }
 
-          if (uploadResponse.status === 400) {
-            validationFailed = true;
-            throw new Error(uploadResult.error || "Resume upload failed.");
-          }
+        const uploadResult = (await uploadResponse.json()) as {
+          url?: string | null;
+          error?: string;
+        };
 
-          resumeUrl =
-            uploadResult.url ||
+        if (uploadResponse.status === 200 && uploadResult.url) {
+          resumeUrl = uploadResult.url;
+          setMessage("Resume uploaded. Submitting application...");
+        } else {
+          throw new Error(
             uploadResult.error ||
-            RESUME_UPLOAD_UNKNOWN_ERROR_MESSAGE;
-        } catch (uploadError) {
-          if (validationFailed) {
-            throw uploadError;
-          }
-          resumeUrl =
-            uploadError instanceof Error
-              ? uploadError.message
-              : RESUME_UPLOAD_UNKNOWN_ERROR_MESSAGE;
+              `Upload API responded with status ${uploadResponse.status}.`,
+          );
         }
       }
 
@@ -195,9 +192,11 @@ export function CustechInterviewApplicationForm() {
       setFields(initialCustechInterviewFormFields);
       setResume(null);
       setSkillInput("");
-    } catch {
+    } catch (error) {
       setStatus("error");
-      setMessage(INTERNET_UNSTABLE_MESSAGE);
+      setMessage(
+        error instanceof Error ? error.message : INTERNET_UNSTABLE_MESSAGE,
+      );
     }
   };
 
