@@ -97,15 +97,31 @@ export function CustechInterviewApplicationForm() {
   };
 
   const validateRequiredFields = () => {
-    if (!fields.fullName.trim()) return "Full name is required.";
-    if (!fields.contactNumber.trim()) return "Contact number is required.";
-    if (!fields.emailAddress.trim()) return "Email address is required.";
-    if (!fields.salaryExpectations.trim())
-      return "Salary expectations are required.";
+    const requiredText: [keyof typeof fields, string][] = [
+      ["positionApplyingFor", "Position applying for"],
+      ["date", "Date"],
+      ["fullName", "Full name"],
+      ["contactNumber", "Contact number"],
+      ["emailAddress", "Email address"],
+      ["currentAddress", "Current address"],
+      ["whyJoinUs", "Why join us"],
+      ["knowledgeOfJobRole", "Knowledge of the job role"],
+      ["whyChangeJob", "Why change job"],
+      ["whyHireYou", "Why hire you"],
+      ["currentLastEmployer", "Current / last employer"],
+      ["salaryExpectations", "Salary expectations"],
+      ["idealWorkEnvironment", "Ideal work environment"],
+      ["referenceNameAndContact", "Reference name and contact"],
+      ["medicalIssues", "Medical issues"],
+      ["joiningDate", "Joining date"],
+    ];
+    for (const [key, label] of requiredText) {
+      if (!String(fields[key]).trim()) return `${label} is required.`;
+    }
     if (!fields.nightShiftWilling)
       return "Please select night shift preference.";
     if (fields.skills.length === 0) return "Please add at least one skill.";
-    if (!fields.joiningDate.trim()) return "Joining date is required.";
+    if (!resume) return "Please upload your resume (PDF).";
     return null;
   };
 
@@ -124,59 +140,23 @@ export function CustechInterviewApplicationForm() {
     setMessage("Submitting application...");
 
     try {
-      let resumeUrl = "";
-      if (resume) {
-        setMessage("Uploading resume...");
-        const fileData = new FormData();
-        fileData.append("file", resume);
+      const body = new FormData();
+      body.append("source", "custech");
+      for (const [key, value] of Object.entries(fields)) {
+        body.append(key, key === "skills" ? JSON.stringify(value) : String(value));
+      }
+      if (resume) body.append("resume", resume);
 
-        let uploadResponse: Response;
-        try {
-          uploadResponse = await fetch("/api/upload-files", {
-            method: "POST",
-            body: fileData,
-          });
-        } catch {
-          throw new Error(
-            "Could not reach the upload server. Please check your connection and try again.",
-          );
-        }
-
-        const uploadResult = (await uploadResponse.json()) as {
-          url?: string | null;
-          error?: string;
-        };
-
-        if (uploadResponse.status === 200 && uploadResult.url) {
-          resumeUrl = uploadResult.url;
-          setMessage("Resume uploaded. Submitting application...");
-        } else {
-          throw new Error(
-            uploadResult.error ||
-              `Upload API responded with status ${uploadResponse.status}.`,
-          );
-        }
+      let response: Response;
+      try {
+        response = await fetch("/api/apply", { method: "POST", body });
+      } catch {
+        throw new Error(
+          "Could not reach the server. Please check your connection and try again.",
+        );
       }
 
-      const now = new Date();
-      const submittedAtIso = now.toISOString().replace(/\.\d{3}Z$/, "Z");
-
-      const payload = {
-        ...fields,
-        resumeFileName: resume?.name ?? "",
-        resumeUrl,
-        submittedAt: submittedAtIso,
-      };
-
-      const response = await fetch("/api/custech-interview-submissions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const result = (await response.json()) as {
+      const result = (await response.json().catch(() => ({}))) as {
         ok?: boolean;
         error?: string;
       };
@@ -618,12 +598,18 @@ export function CustechInterviewApplicationForm() {
               id="resume"
               name="resume"
               type="file"
-              accept=".pdf,application/pdf,image/*"
+              accept=".pdf,application/pdf"
               className={`${inputClass} cursor-pointer file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-secondary-foreground hover:file:bg-secondary/90`}
               onChange={(e) => {
                 const file = e.target.files?.[0] ?? null;
-                if (file && file.type !== "application/pdf" && !file.type.startsWith("image/")) {
-                  window.alert("Please upload a PDF or image file (DOCX is not supported).");
+                if (file && file.type !== "application/pdf" && !/.pdf$/i.test(file.name)) {
+                  window.alert("Please upload your resume as a PDF.");
+                  e.target.value = "";
+                  setResume(null);
+                  return;
+                }
+                if (file && file.size > 5 * 1024 * 1024) {
+                  window.alert("Resume must be 5 MB or smaller.");
                   e.target.value = "";
                   setResume(null);
                   return;
@@ -632,7 +618,7 @@ export function CustechInterviewApplicationForm() {
               }}
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              Accepted formats: PDF or image (JPG, PNG, etc.). DOCX is not supported.
+              PDF only, up to 5 MB.
             </p>
             {resume ? (
               <p className="mt-1 text-xs text-muted-foreground">

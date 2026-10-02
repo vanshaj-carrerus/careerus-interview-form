@@ -1,37 +1,27 @@
-import { MongoClient, type Db } from "mongodb";
+import { MongoClient } from "mongodb";
 
-const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME?.trim() || "careerus";
+const globalForMongo = globalThis as unknown as {
+  _mongoClientPromise?: Promise<MongoClient>;
+};
 
-function isConfiguredValue(value: string | undefined) {
-  if (!value) return false;
-  const trimmed = value.trim();
-  if (!trimmed) return false;
-  return !/your-|placeholder|example/i.test(trimmed);
-}
+// Reuse one client across hot reloads and serverless invocations.
+export function getMongoClient(): Promise<MongoClient> {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) throw new Error("MONGODB_URI is not set");
 
-export function isMongoConfigured() {
-  return isConfiguredValue(process.env.MONGODB_URI);
-}
-
-declare global {
-  var _mongoClientPromise: Promise<MongoClient> | undefined;
-}
-
-function getClientPromise(): Promise<MongoClient> {
-  const uri = process.env.MONGODB_URI?.trim();
-  if (!uri) {
-    throw new Error("MONGODB_URI is not configured.");
+  if (!globalForMongo._mongoClientPromise) {
+    // Fail fast instead of hanging for the 30s driver default.
+    const client = new MongoClient(uri, { serverSelectionTimeoutMS: 10_000, connectTimeoutMS: 10_000 });
+    globalForMongo._mongoClientPromise = client.connect().catch((err) => {
+      // Don't cache a failed connection; let the next request retry.
+      globalForMongo._mongoClientPromise = undefined;
+      throw err;
+    });
   }
-
-  if (!global._mongoClientPromise) {
-    const client = new MongoClient(uri);
-    global._mongoClientPromise = client.connect();
-  }
-
-  return global._mongoClientPromise;
+  return globalForMongo._mongoClientPromise;
 }
 
-export async function getMongoDb(): Promise<Db> {
-  const client = await getClientPromise();
-  return client.db(MONGODB_DB_NAME);
+export async function getDb() {
+  const client = await getMongoClient();
+  return client.db(process.env.MONGODB_DB || "interview");
 }
